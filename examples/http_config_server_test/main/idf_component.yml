@@ -1,0 +1,8 @@
+version: 1.0.0
+dependencies:
+  idf: '>=5.5.0'
+  elrebo-de/wifi_manager: 1.4.0
+  elrebo-de/generic_nvsflash: 1.0.10
+  elrebo-de/http_config_server:
+    version: "1.0.0"
+    override_path: '../../../' # three levels up, pointing to the directory with the component itself

@@ -1,0 +1,13 @@
+version: "1.0.0"
+license: "Apache 2.0"
+description: "HTTP Configuration Server component for ESP-IDF version 5.5.0+ using a C++ class"
+url: "https://github.com/elrebo-de/http_config_server"
+issues: "https://github.com/elrebo-de/http_config_server/issues"
+repository: "https://github.com/elrebo-de/http_config_server.git"
+maintainers:
+  - Christoph Oberle <christoph.oberle@elrebo.de>
+files:
+  use_gitignore: true
+dependencies:
+  idf: ">=5.5.0"
+  elrebo-de/generic_nvsflash: 1.0.10
