@@ -16,15 +16,32 @@
 #include "sdkconfig.h"
 #include "esp_idf_version.h"
 
-HttpConfigServer::HttpConfigServer( std::string tag,
-                                    std::string ipAddress,
-                                    std::string nvsNamespace
-                                  ) {
-	this->tag = tag;
-	this->ipAddress = ipAddress;
-    this->nvsNamespace = nvsNamespace;
+HttpConfigServer& HttpConfigServer::getInstance()
+{
+    static HttpConfigServer instance; // Guaranteed to be destroyed. Instantiated on first use.
+    return instance;
+}
 
-    this->nvsFlash = new GenericNvsFlash("nvsFlash", nvsNamespace, NVS_READWRITE);
+
+bool HttpConfigServer::initialize( std::string tag,
+                                   std::string ipAddress,
+                                   std::string nvsNamespace
+                                 ) {
+    if (this->initializationDone) {
+        ESP_LOGI(this->tag.c_str(), "initialize not executed, HttpConfigServer is already initialized!");
+        return false;
+    }
+    else {
+	    this->tag = tag;
+	    this->ipAddress = ipAddress;
+        this->nvsNamespace = nvsNamespace;
+
+        this->nvsFlash = new GenericNvsFlash("nvsFlash", nvsNamespace, NVS_READWRITE);
+
+        this->initializationDone = true;
+
+        return true;
+    }
 }
 
 HttpConfigServer::~HttpConfigServer() {
@@ -34,10 +51,10 @@ HttpConfigServer::~HttpConfigServer() {
     this->nvsFlash = nullptr;
 }
 
-bool HttpConfigServer::isInitialized()
+bool HttpConfigServer::isConfigured()
 {
     bool rc;
-    bool allParametersInitialized = true;
+    bool allParametersConfigured = true;
     std::string parameterValue;
     esp_err_t ret;
 
@@ -53,7 +70,7 @@ bool HttpConfigServer::isInitialized()
         ESP_LOGI(this->tag.c_str(), "Parameter %s: getStringParameterValue ret: %u", parameterName.c_str(), ret);
 
         if (ret != ESP_OK) {
-            allParametersInitialized = false;
+            allParametersConfigured = false;
         }
     }
 
@@ -62,7 +79,7 @@ bool HttpConfigServer::isInitialized()
     }
     this->nvsFlash = nullptr;
 
-    if (!allParametersInitialized) {
+    if (!allParametersConfigured) {
         // start HTTP configuration
         this->startConfiguration();
         rc = false;
@@ -100,7 +117,7 @@ std::string HttpConfigServer::getStringParameterValue(std::string parameterName,
     return nvsFlash->GetStr(parameterName, ret);
 }
 
-void startConfiguration() {
+void HttpConfigServer::startConfiguration() {
     this->configurationActive = true;
 
     // start HTTP server

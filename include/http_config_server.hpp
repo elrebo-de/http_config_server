@@ -22,19 +22,20 @@
    To enter the parameters an HTTP server is started.
    It runs on any ESP32 processor and is built using the ESP-IDF build system in version 5.5+.
 
+   HttpConfigServer is a Singleton
+
    Tested with
    * ESP32C3
 */
 class HttpConfigServer {
 public:
-    // Constructor
-	HttpConfigServer( std::string tag,
-	                  std::string ipAddress,
-	                  std::string nvsNamespace
-	                );
-	virtual ~HttpConfigServer();
+    static HttpConfigServer& getInstance();
 
-	bool isInitialized();
+	bool initialize( std::string tag,
+	                 std::string ipAddress,
+	                 std::string nvsNamespace
+	               );
+	bool isConfigured();
 
     esp_err_t addStringParameter( std::string parameterName,
                                   std::string description
@@ -47,6 +48,9 @@ public:
     std::string getStringParameterValue( std::string parameterName, esp_err_t *ret );
 
 private:
+    HttpConfigServer() {} // Constructor
+    virtual ~HttpConfigServer();
+
     void startConfiguration();
 
     std::string tag = "HttpConfigServer";
@@ -58,7 +62,13 @@ private:
     // Map of config parameters<parameterName, description>
     std::map<std::string, std::string> parameters{};
 
+    bool initializationDone = false;
+
     bool configurationActive = false;
+
+    public:
+        HttpConfigServer(HttpConfigServer const&) = delete;
+        void operator=(HttpConfigServer const&) = delete;
 };
 
 #endif /* HTTP_CONFIG_SERVER_HPP_ */
