@@ -12,6 +12,8 @@
 #include <string>
 #include <map>
 
+#include <esp_http_server.h>
+
 #include "esp_log.h"
 
 #include "generic_nvsflash.hpp"
@@ -45,13 +47,20 @@ public:
                                        std::string parameterValue
                                 );
 
+    esp_err_t eraseParameter( std::string parameterName);
+
     std::string getStringParameterValue( std::string parameterName, esp_err_t *ret );
+
+    esp_err_t configGetHandler(httpd_req_t *req);
 
 private:
     HttpConfigServer() {} // Constructor
     virtual ~HttpConfigServer();
 
     void startConfiguration();
+    void stopConfiguration();
+    httpd_handle_t startWebserver();
+    esp_err_t stopWebserver(httpd_handle_t server);
 
     std::string tag = "HttpConfigServer";
     std::string ipAddress;
@@ -63,8 +72,8 @@ private:
     std::map<std::string, std::string> parameters{};
 
     bool initializationDone = false;
-
     bool configurationActive = false;
+    httpd_handle_t server = NULL;
 
     public:
         HttpConfigServer(HttpConfigServer const&) = delete;
