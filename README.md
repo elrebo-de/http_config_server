@@ -9,108 +9,105 @@ The component is implemented as C++ class `HttpConfigServer`.
 
 ## Connecting the component
 
-The constructor of class `HttpConfigServer` has two parameters:
+The constructor of class `HttpConfigServer` has three parameters:
 
 | Parameter | Type of Parameter | Usage                                              |
 |:----------|:------------------|:---------------------------------------------------|
 | tag       | std::string       | the tag to be used in the ESP log                  |
 | ipAddress | std::string       | the IP address on which the HTTP Server is started |
-| config    | std::string       | the nvs namespace                                  |
+| config    | std::string       | the name of the nvs namespace                      |
 
 # Usage
 To use the HttpConfigServer component you have to include "http_config_server.hpp".
 
-Configuration parameters are added with method `addString`. Currently only parameters of type std::string can be added.
+Class HttpConfigServer is a Singleton. You get the instance with the static method `getInstance`.
 
-After defining the configuration parameters the class must be initialized with method `initialize`.
+First the class must be initialized with method `initialize`.
 
-The method first checks, whether the paramaters are already defined in nvs_flash. If they are already defined there, the method returns.
+Then Configuration parameters are added with method `addStringParameter`. Currently only parameters of type std::string can be added.
+
+Finally method `isInitialized` is used.
+
+The method first checks, whether the parameters are already defined in nvs_flash. If they are already defined there, the method returns.
 
 If they are not yet stored in nvs_flash, an HTTP server is started, which enables the user to set the configuration parameters in nvs_flash.
+
 When the configuration is finished, the method returns.
 
-The configuration parameters can be retrieved with method `getString`.
+Now the configuration parameters can be retrieved with method `getString`.
 
-Method EnableTimerWakeup has two parameters:
-
-| Parameter     | Type of Parameter | Usage                                                                            |
-|:--------------|:------------------|:---------------------------------------------------------------------------------|
-| sleepTime     | unsigned long     | the sleep time                                                                   |
-| sleepTimeUnit | std::string       | the unit in which the sleep time is given {"min", "sec", "milliSec", "microSec"} |
-
-Method EnableGpioWakeup has two parameters:
-
-| Parameter | Type of Parameter | Usage                           |
-|:----------|:------------------|:--------------------------------|
-| gpio      | gpio_num_t        | the GPIO number                 |
-| level     | int               | the wakeup trigger level {1, 0} |
 
 Example code:
 
 ```
+#include "http_config_server.hpp"
 #include "wifi_manager.hpp"
 
-#include "http_config_server.hpp"
+#include "esp_log.h"
+#include "sdkconfig.h"
 
-// InfluxDB server url. Don't use localhost, always server name or ip address.
-// E.g. http://192.168.1.48:8086 (In InfluxDB 2 UI -> Load Data -> Client Libraries),
-std::string influxdbUrl = "";
-// InfluxDB 2 server or cloud API authentication token (Use: InfluxDB UI -> Load Data -> Tokens -> <select token>)
-std::string influxdbToken = "";
-// InfluxDB 2 organization id (Use: InfluxDB UI -> Settings -> Profile -> <name under tile> )
-std::string influxdbOrg = "";
-// InfluxDB 2 bucket name (Use: InfluxDB UI -> Load Data -> Buckets)
-std::string influxdbBucket = "";
+static const char *tag = "**** Example Program ****";
 
 extern "C" void app_main(void)
 {
+    // short delay to reconnect logging
+    vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
+
+    ESP_LOGI(tag, "Example Program Start");
+
     Wifi wifi( std::string("WifiManager"), // tag for ESP_LOGx
                std::string("ESP32"),       // ssid_prefix for configuration access point
                std::string("de-DE")        // language for configuration access point
              );
 
-    // construct HttpConfigServer instance
-    HttpConfigServer configServer( std::string("HttpServerConfig"), // tag for ESP_LOGx
-                                   wifi.GetIpAddress(), // IP address
-                                   std::string("config")
-                                 );
-    // add config parameter "influxdbUrl"                                 
-    configServer.addString( "influxdbUrl", 
-                            "",
-                            "InfluxDB server url. Don't use localhost, always server name or ip address.\n" +
-                            "E.g. http://192.168.1.48:8086 (In InfluxDB 2 UI -> Load Data -> Client Libraries)" 
-                          );                                                          
-    // add config parameter "influxdbToken"                                 
-    configServer.addString( "influxdbToken", 
-                            "",
-                            "InfluxDB 2 server or cloud API authentication token (Use: InfluxDB UI -> Load Data -> Tokens -> <select token>)" 
-                          );                                                          
-    // add config parameter "influxdbOrg"                                 
-    configServer.addString( "influxdbOrg", 
-                            "",
-                            "InfluxDB 2 organization id (Use: InfluxDB UI -> Settings -> Profile -> <name under tile> )"
-                          );                                                          
-    // add config parameter "influxdbBucket"                                 
-    configServer.addString( "influxdbBucket", 
-                            "",
-                            "InfluxDB 2 bucket name (Use: InfluxDB UI -> Load Data -> Buckets)"
-                          );
+    // get ConfigServer instance
+    HttpConfigServer* configServer = &HttpConfigServer::getInstance();
 
-    // initialize configServer
+    configServer->initialize( std::string("**** HttpServerConfig ****"), // tag for ESP_LOGx
+                              wifi.GetIpAddress(), // IP address
+                              std::string("config") // nvs namespace
+                            );
+
+    // add config parameter "influxdbUrl"
+    configServer->addStringParameter( "01_Url",
+                                     "InfluxDB server url. Don't use localhost, always server name or ip address. E.g. http://192.168.1.48:8086 (In InfluxDB 2 UI -> Load Data -> Client Libraries)"
+                                   );
+    // add config parameter "influxdbToken"
+    configServer->addStringParameter( "02_Token",
+                                     "InfluxDB 2 server or cloud API authentication token (Use: InfluxDB UI -> Load Data -> Tokens -> <select token>)"
+                                   );
+    // add config parameter "influxdbOrg"
+    configServer->addStringParameter( "03_Org",
+                                     "InfluxDB 2 organization id (Use: InfluxDB UI -> Settings -> Profile -> <name under tile> )"
+                                   );
+    // add config parameter "influxdbBucket"
+    configServer->addStringParameter( "04_Bucket",
+                                     "InfluxDB 2 bucket name (Use: InfluxDB UI -> Load Data -> Buckets)"
+                                   );
+
+    // isConfigured()
     // connect to nvs_flash
-    // if config parameters are already set in nvs_flash -> return
-    // else start http server to set config parameter values
-    // return after config parameters are set in nvs_flash
-    configServer.initialize();
+    // if config parameters are already set in nvs_flash -> return true
+    // else start http server to set config parameter values and return false
+    while (!configServer->isConfigured()) {
+        ESP_LOGI(tag, "HttpConfigServer is not yet configured");
+        vTaskDelay(pdMS_TO_TICKS(10000)); // delay 10 seconds
+    }
 
-    // get config paramter values
-    influxdbUrl = configServer.getString("influxdbUrl");
-    influxdbToken = configServer.getString("influxdbToken");
-    influxdbOrg = configServer.getString("influxdbOrg");
-    influxdbBucket = configServer.getString("influxdbBucket");
-    
-    ...
-    
+    // get config parameter values
+    ESP_LOGI(tag, "get config parameter values from HttpConfigServer");
+    esp_err_t ret;
+    std::string influxdbUrl = configServer->getStringParameterValue("01_Url", &ret);
+    std::string influxdbToken = configServer->getStringParameterValue("02_Token", &ret);
+    std::string influxdbOrg = configServer->getStringParameterValue("03_Org", &ret);
+    std::string influxdbBucket = configServer->getStringParameterValue("04_Bucket", &ret);
+
+    ESP_LOGI(tag, "influxdbUrl: %s", influxdbUrl.c_str());
+    ESP_LOGI(tag, "influxdbToken: %s", influxdbToken.c_str());
+    ESP_LOGI(tag, "influxdbOrg: %s", influxdbOrg.c_str());
+    ESP_LOGI(tag, "influxdbBucket: %s", influxdbBucket.c_str());
+
+    vTaskDelay(pdMS_TO_TICKS(60000)); // delay 1 minute
 }
 ```
 
