@@ -4,11 +4,16 @@
  *      Author: christophoberle
  *
  * this work is licenced under the Apache 2.0 licence
+ *
+ * protocol_examples_utils is licenced under the BSD 2-Clause "Simplified" Licence
+ *
  */
 
 #include "http_config_server.hpp"
 
 #include "generic_nvsflash.hpp"
+
+#include "protocol_examples_utils.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -32,11 +37,10 @@ bool HttpConfigServer::initialize( std::string tag,
         return false;
     }
     else {
+        ESP_LOGI(this->tag.c_str(), "initialize HttpConfigServer");
 	    this->tag = tag;
 	    this->ipAddress = ipAddress;
         this->nvsNamespace = nvsNamespace;
-
-        this->nvsFlash = new GenericNvsFlash("nvsFlash", nvsNamespace, NVS_READWRITE);
 
         this->initializationDone = true;
 
@@ -45,245 +49,112 @@ bool HttpConfigServer::initialize( std::string tag,
 }
 
 HttpConfigServer::~HttpConfigServer() {
-    if (nvsFlash != nullptr) {
-        delete this->nvsFlash;
-    }
-    this->nvsFlash = nullptr;
 }
 
 bool HttpConfigServer::isConfigured()
 {
-    bool rc;
     bool allParametersConfigured = true;
     std::string parameterValue;
     esp_err_t ret;
 
+    // if configuration is active (webserver is running) -> return false
+    if (this->configurationActive) {
+        //ESP_LOGI(this->tag.c_str(), "isConfigured: configurationActive: address: %x value: %s", &this->configurationActive, this->configurationActive ? "true" : "false");
+        ESP_LOGI(this->tag.c_str(), "isConfigured: configurationActive == true -> return false");
+        return false;
+    }
+
+    // if configuration is not active, check whether all parameters are configured
     // Iterate parameters
     for (const auto& [parameterName, description] : this->parameters) {
-        ESP_LOGI(this->tag.c_str(), "[%s] Description: \"%s\"", parameterName.c_str(), description.c_str());
+        //ESP_LOGI(this->tag.c_str(), "isConfigured: [%s] Description: \"%s\"", parameterName.c_str(), description.c_str());
 
         parameterValue = this->getStringParameterValue(parameterName, &ret);
-        ESP_LOGI(this->tag.c_str(), "Parameter %s: getStringParameterValue ret: %u", parameterName.c_str(), ret);
+        ESP_LOGI(this->tag.c_str(), "isConfigured: Parameter %s: getStringParameterValue ret: %u value: %s", parameterName.c_str(), ret, parameterValue.c_str());
 
         if (ret != ESP_OK) {
             allParametersConfigured = false;
         }
     }
 
-    if (allParametersConfigured && this->configurationActive) {
-        this->stopConfiguration();
-    }
-
-    if (this->configurationActive) {
-        return false;
-    }
-
-    if (nvsFlash != nullptr) {
-        delete this->nvsFlash;
-    }
-    this->nvsFlash = nullptr;
-
     if (!allParametersConfigured) {
+        ESP_LOGI(this->tag.c_str(), "isConfigured: not allParametersConfigured -> startConfiguration -> return false");
         // start HTTP configuration
         this->startConfiguration();
-        rc = false;
+        return false;
     }
     else {
-        rc = true;
+        ESP_LOGI(this->tag.c_str(), "isConfigured: allParametersConfigured -> return true");
+        return true;
     }
-    return rc;
 }
 
 esp_err_t HttpConfigServer::addStringParameter( std::string parameterName,
                                                 std::string description )
 {
-    this->parameters[parameterName] = description;
-
-    return ESP_OK; // ToDo !
+    ESP_LOGI(this->tag.c_str(), "addStringParameter: %s (%s)", parameterName.c_str(), description.c_str());
+    if ( parameterName.length() > 15) {
+        ESP_LOGE(this->tag.c_str(), "addStringParameter: parameterName %s too long! size=%u (>15)", parameterName.c_str(), parameterName.length());
+        return ESP_FAIL;
+    }
+    else {
+        this->parameters[parameterName] = description;
+        return ESP_OK;
+    }
 }
 
 esp_err_t HttpConfigServer::setStringParameterValue( std::string parameterName,
                                                      std::string parameterValue )
 {
-    if (this->nvsFlash == nullptr) {
-        this->nvsFlash = new GenericNvsFlash("nvsFlash", nvsNamespace, NVS_READWRITE);
-    }
-    return nvsFlash->SetStr(parameterName, parameterValue);
+    esp_err_t ret;
+
+    GenericNvsFlash *nvsFlash = new GenericNvsFlash("nvsFlash", this->nvsNamespace, NVS_READWRITE);
+    ret = nvsFlash->SetStr(parameterName, parameterValue);
+    ESP_LOGI(this->tag.c_str(), "setStringParameterValue: %s = %s ret=%u", parameterName.c_str(), parameterValue.c_str(), ret);
+   delete nvsFlash;
+
+
+    return ret;
 }
 
 esp_err_t HttpConfigServer::eraseParameter( std::string parameterName )
 {
-    if (this->nvsFlash == nullptr) {
-        this->nvsFlash = new GenericNvsFlash("nvsFlash", nvsNamespace, NVS_READWRITE);
-    }
-    return nvsFlash->EraseKey(parameterName);
+    esp_err_t ret;
+
+    ESP_LOGI(this->tag.c_str(), "eraseParameter: %s", parameterName.c_str());
+    GenericNvsFlash *nvsFlash = new GenericNvsFlash("nvsFlash", this->nvsNamespace, NVS_READWRITE);
+    ret = nvsFlash->EraseKey(parameterName);
+    delete nvsFlash;
+
+    return ret;
 }
 
 std::string HttpConfigServer::getStringParameterValue(std::string parameterName, esp_err_t *ret )
 {
-    *ret = ESP_OK;
-    if (this->nvsFlash == nullptr) {
-        this->nvsFlash = new GenericNvsFlash("nvsFlash", nvsNamespace, NVS_READWRITE);
-    }
-    return nvsFlash->GetStr(parameterName, ret);
+    ESP_LOGI(this->tag.c_str(), "getStringParameterValue: %s", parameterName.c_str());
+    GenericNvsFlash *nvsFlash = new GenericNvsFlash("nvsFlash", this->nvsNamespace, NVS_READWRITE);
+    std::string parameterValue = nvsFlash->GetStr(parameterName, ret);
+    delete nvsFlash;
+
+    return parameterValue;
 }
 
 void HttpConfigServer::startConfiguration() {
+    ESP_LOGI(this->tag.c_str(), "startConfiguration");
     this->configurationActive = true;
 
     /* Start HTTP server */
+    ESP_LOGI(this->tag.c_str(), "startConfiguration: configurationActive: address: %x value: %s", &this->configurationActive, this->configurationActive ? "true" : "false");
     this->server = this->startWebserver();
 }
 
 void HttpConfigServer::stopConfiguration() {
+    ESP_LOGI(this->tag.c_str(), "stopConfiguration");
+    ESP_LOGI(this->tag.c_str(), "stopConfiguration: configurationActive: address: %x value: %s", &this->configurationActive, this->configurationActive ? "true" : "false");
+    this->configurationActive = false;
+    ESP_LOGI(this->tag.c_str(), "stopConfiguration: configurationActive: address: %x value: %s", &this->configurationActive, this->configurationActive ? "true" : "false");
     /* Stop HTTP server */
     this->stopWebserver(this->server);
-
-    this->configurationActive = false;
-}
-
-/* Type of Unescape algorithms to be used */
-#define NGX_UNESCAPE_URI          (1)
-#define NGX_UNESCAPE_REDIRECT     (2)
-
-
-void ngx_unescape_uri(u_char **dst, u_char **src, size_t size, unsigned int type)
-{
-    u_char  *d, *s, ch, c, decoded;
-    enum {
-        sw_usual = 0,
-        sw_quoted,
-        sw_quoted_second
-    } state;
-
-    d = *dst;
-    s = *src;
-
-    state = sw_usual;
-    decoded = 0;
-
-    while (size--) {
-
-        ch = *s++;
-
-        switch (state) {
-        case sw_usual:
-            if (ch == '?'
-                    && (type & (NGX_UNESCAPE_URI | NGX_UNESCAPE_REDIRECT))) {
-                *d++ = ch;
-                goto done;
-            }
-
-            if (ch == '%') {
-                state = sw_quoted;
-                break;
-            }
-
-            *d++ = ch;
-            break;
-
-        case sw_quoted:
-
-            if (ch >= '0' && ch <= '9') {
-                decoded = (u_char) (ch - '0');
-                state = sw_quoted_second;
-                break;
-            }
-
-            c = (u_char) (ch | 0x20);
-            if (c >= 'a' && c <= 'f') {
-                decoded = (u_char) (c - 'a' + 10);
-                state = sw_quoted_second;
-                break;
-            }
-
-            /* the invalid quoted character */
-
-            state = sw_usual;
-
-            *d++ = ch;
-
-            break;
-
-        case sw_quoted_second:
-
-            state = sw_usual;
-
-            if (ch >= '0' && ch <= '9') {
-                ch = (u_char) ((decoded << 4) + (ch - '0'));
-
-                if (type & NGX_UNESCAPE_REDIRECT) {
-                    if (ch > '%' && ch < 0x7f) {
-                        *d++ = ch;
-                        break;
-                    }
-
-                    *d++ = '%'; *d++ = *(s - 2); *d++ = *(s - 1);
-
-                    break;
-                }
-
-                *d++ = ch;
-
-                break;
-            }
-
-            c = (u_char) (ch | 0x20);
-            if (c >= 'a' && c <= 'f') {
-                ch = (u_char) ((decoded << 4) + (c - 'a') + 10);
-
-                if (type & NGX_UNESCAPE_URI) {
-                    if (ch == '?') {
-                        *d++ = ch;
-                        goto done;
-                    }
-
-                    *d++ = ch;
-                    break;
-                }
-
-                if (type & NGX_UNESCAPE_REDIRECT) {
-                    if (ch == '?') {
-                        *d++ = ch;
-                        goto done;
-                    }
-
-                    if (ch > '%' && ch < 0x7f) {
-                        *d++ = ch;
-                        break;
-                    }
-
-                    *d++ = '%'; *d++ = *(s - 2); *d++ = *(s - 1);
-                    break;
-                }
-
-                *d++ = ch;
-
-                break;
-            }
-
-            /* the invalid quoted character */
-
-            break;
-        }
-    }
-
-done:
-
-    *dst = d;
-    *src = s;
-}
-
-
-void example_uri_decode(char *dest, const char *src, size_t len)
-{
-    if (!src || !dest) {
-        return;
-    }
-
-    unsigned char *src_ptr = (unsigned char *)src;
-    unsigned char *dst_ptr = (unsigned char *)dest;
-    ngx_unescape_uri(&dst_ptr, &src_ptr, len, NGX_UNESCAPE_URI);
 }
 
 /* An HTTP GET handler for the config page */
@@ -297,7 +168,8 @@ extern "C" esp_err_t config_get_handler(httpd_req_t *req)
 /* An HTTP GET handler */
 esp_err_t HttpConfigServer::configGetHandler(httpd_req_t *req)
 {
-    char*  buf;
+    ESP_LOGI(this->tag.c_str(), "configGetHandler");
+    char* buf;
     size_t buf_len;
     bool queryBuffer = false;
 
@@ -371,13 +243,19 @@ esp_err_t HttpConfigServer::configGetHandler(httpd_req_t *req)
     resp_str += "<h2>Configuration of Parameters</h2>";
     resp_str += "<br/>";
 
+    bool allParametersConfigured = true;
+
     // Iterate parameters
     for (const auto& [parameterName, description] : this->parameters) {
         std::string parameter;
+        bool thisParameterConfigured = false;
 
         std::string parameterValue = this->getStringParameterValue(parameterName, &ret);
         if (ret != 0) {
             parameterValue = std::string("");
+        }
+        else {
+            thisParameterConfigured = true;
         }
 
         if (queryBuffer) {
@@ -392,16 +270,18 @@ esp_err_t HttpConfigServer::configGetHandler(httpd_req_t *req)
 
                 if (parameterValue.length() > 0) {
                     this->setStringParameterValue(parameterName, parameterValue);
+                    thisParameterConfigured = true;
                 }
                 else {
                     this->eraseParameter(parameterName);
+                    thisParameterConfigured = false;
                 }
-
-                if (this->nvsFlash != nullptr) {
-                    delete this->nvsFlash;
-                }
-                this->nvsFlash = nullptr;
             }
+        }
+        if (thisParameterConfigured) {
+        }
+        else {
+            allParametersConfigured = false;
         }
 
         resp_str += "<h3> Parameter " + parameterName + "</h3>";
@@ -431,7 +311,12 @@ esp_err_t HttpConfigServer::configGetHandler(httpd_req_t *req)
 
     httpd_resp_send(req, resp_str.c_str(), HTTPD_RESP_USE_STRLEN);
 
-    return ESP_OK;
+    if (allParametersConfigured) {
+        ESP_LOGI(this->tag.c_str(), "configGetHandler: allParametersConfigured -> stopConfiguration");
+        this->stopConfiguration();
+    }
+
+    return ESP_OK; // was: ESP_FAIL to close the connection
 }
 
 const httpd_uri_t uriConfig = {
@@ -461,7 +346,13 @@ httpd_handle_t HttpConfigServer::startWebserver()
 
 esp_err_t HttpConfigServer::stopWebserver(httpd_handle_t server)
 {
+    esp_err_t ret;
+    ESP_LOGI(this->tag.c_str(), "stopWebserver");
     // Stop the httpd server
-    return httpd_stop(server);
+    ret = httpd_stop(server);
+    if (ret == ESP_OK) {
+        server = nullptr;
+    }
+    return ret;
 }
 

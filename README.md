@@ -123,3 +123,8 @@ C++ class `HttpConfigServer`
 
 # License
 This component is provided under the Apache 2.0 license.
+
+It uses protocol_examples_utils from GitHub repository espressif/esp-idf at 
+examples/common_components/protocol_examples_common/include/protocol_examples_utils.h and 
+examples/common_components/protocol_examples_common/protocol_examples_utils.c
+which is provided under the BSD 2-Clause "Simplified" License.

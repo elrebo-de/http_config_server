@@ -66,8 +66,6 @@ private:
     std::string ipAddress;
     std::string nvsNamespace = "config";
 
-    GenericNvsFlash *nvsFlash = nullptr;
-
     // Map of config parameters<parameterName, description>
     std::map<std::string, std::string> parameters{};
 

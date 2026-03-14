@@ -10,4 +10,4 @@ files:
   use_gitignore: true
 dependencies:
   idf: ">=5.5.0"
-  elrebo-de/generic_nvsflash: 1.0.10
+  elrebo-de/generic_nvsflash: ^1.0.21

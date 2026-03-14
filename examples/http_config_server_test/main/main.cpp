@@ -1,5 +1,5 @@
 /*
- * Example program to use http config server with elrebo-de/deep_sleep
+ * Example program to use http config server with elrebo-de/http_config_server
  */
 
 #include <string>
@@ -12,14 +12,14 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 
-static const char *tag = "http config server test";
+static const char *tag = "**** Example Program ****";
 
 extern "C" void app_main(void)
 {
     // short delay to reconnect logging
     vTaskDelay(pdMS_TO_TICKS(500)); // delay 0.5 seconds
 
-    ESP_LOGI(tag, "Example Program");
+    ESP_LOGI(tag, "Example Program Start");
 
     Wifi wifi( std::string("WifiManager"), // tag for ESP_LOGx
                std::string("ESP32"),       // ssid_prefix for configuration access point
@@ -29,25 +29,25 @@ extern "C" void app_main(void)
     // get ConfigServer instance
     HttpConfigServer* configServer = &HttpConfigServer::getInstance();
 
-    configServer->initialize( std::string("HttpServerConfig"), // tag for ESP_LOGx
+    configServer->initialize( std::string("**** HttpServerConfig ****"), // tag for ESP_LOGx
                               wifi.GetIpAddress(), // IP address
                               std::string("config") // nvs namespace
                             );
 
     // add config parameter "influxdbUrl"
-    configServer->addStringParameter( "01_influxdbUrl",
+    configServer->addStringParameter( "01_Url",
                                      "InfluxDB server url. Don't use localhost, always server name or ip address. E.g. http://192.168.1.48:8086 (In InfluxDB 2 UI -> Load Data -> Client Libraries)"
                                    );
     // add config parameter "influxdbToken"
-    configServer->addStringParameter( "02_influxdbToken",
+    configServer->addStringParameter( "02_Token",
                                      "InfluxDB 2 server or cloud API authentication token (Use: InfluxDB UI -> Load Data -> Tokens -> <select token>)"
                                    );
     // add config parameter "influxdbOrg"
-    configServer->addStringParameter( "03_influxdbOrg",
+    configServer->addStringParameter( "03_Org",
                                      "InfluxDB 2 organization id (Use: InfluxDB UI -> Settings -> Profile -> <name under tile> )"
                                    );
     // add config parameter "influxdbBucket"
-    configServer->addStringParameter( "04_influxdbBucket",
+    configServer->addStringParameter( "04_Bucket",
                                      "InfluxDB 2 bucket name (Use: InfluxDB UI -> Load Data -> Buckets)"
                                    );
 
@@ -56,16 +56,17 @@ extern "C" void app_main(void)
     // if config parameters are already set in nvs_flash -> return true
     // else start http server to set config parameter values and return false
     while (!configServer->isConfigured()) {
-        ESP_LOGI(tag, "HttpConfigServer is not configured");
+        ESP_LOGI(tag, "HttpConfigServer is not yet configured");
         vTaskDelay(pdMS_TO_TICKS(10000)); // delay 10 seconds
     }
 
     // get config parameter values
+    ESP_LOGI(tag, "get config parameter values from HttpConfigServer");
     esp_err_t ret;
-    std::string influxdbUrl = configServer->getStringParameterValue("01_influxdbUrl", &ret);
-    std::string influxdbToken = configServer->getStringParameterValue("02_influxdbToken", &ret);
-    std::string influxdbOrg = configServer->getStringParameterValue("03_influxdbOrg", &ret);
-    std::string influxdbBucket = configServer->getStringParameterValue("04_influxdbBucket", &ret);
+    std::string influxdbUrl = configServer->getStringParameterValue("01_Url", &ret);
+    std::string influxdbToken = configServer->getStringParameterValue("02_Token", &ret);
+    std::string influxdbOrg = configServer->getStringParameterValue("03_Org", &ret);
+    std::string influxdbBucket = configServer->getStringParameterValue("04_Bucket", &ret);
 
     ESP_LOGI(tag, "influxdbUrl: %s", influxdbUrl.c_str());
     ESP_LOGI(tag, "influxdbToken: %s", influxdbToken.c_str());
