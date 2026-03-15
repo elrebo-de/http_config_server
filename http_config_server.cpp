@@ -196,15 +196,38 @@ esp_err_t HttpConfigServer::configGetHandler(httpd_req_t *req)
     resp_str += "         padding: 0;\n";
     resp_str += "         background-color: #f0f0f0;\n";
     resp_str += "     }\n";
-    resp_str += " \n";
+    resp_str += "     h3 {\n";
+    resp_str += "         width: 15%;\n";
+    resp_str += "         float: left;\n";
+    resp_str += "         vertical-align: top\n";
+    resp_str += "         padding: 0;\n"; // 5px
+    //resp_str += "         box-sizing: border-box;\n";
+    //resp_str += "         border: 1px solid #ccc;\n";
+    //resp_str += "         border-radius: 3px;\n";
+    resp_str += "         font-size: 1em;\n";
+    resp_str += "     }\n";
+    resp_str += "     p {\n";
+    //resp_str += "         width: 15%;\n";
+    //resp_str += "         float: left;\n";
+    //resp_str += "         vertical-align: top\n";
+    resp_str += "         margin-top: 5px;\n";
+    resp_str += "         padding: 5px;\n";
+    //resp_str += "         box-sizing: border-box;\n";
+    //resp_str += "         border: 1px solid #ccc;\n";
+    //resp_str += "         border-radius: 3px;\n";
+    resp_str += "         font-size: 1em;\n";
+    resp_str += "     }\n";
+      resp_str += " \n";
     resp_str += "     /* ========== Form Elements ========== */\n";
     resp_str += "     label {\n";
     resp_str += "         display: block;\n";
     resp_str += "         margin-bottom: 5px;\n";
     resp_str += "     }\n";
     resp_str += "     input {\n";
-    resp_str += "         width: 100%;\n";
+    resp_str += "         width: 85%;\n";
+    resp_str += "         float: right;\n";
     resp_str += "         padding: 5px;\n";
+    resp_str += "         margin-bottom: 5px;\n";
     resp_str += "         box-sizing: border-box;\n";
     resp_str += "         border: 1px solid #ccc;\n";
     resp_str += "         border-radius: 3px;\n";
@@ -241,7 +264,7 @@ esp_err_t HttpConfigServer::configGetHandler(httpd_req_t *req)
 
     resp_str += "<form id=\"config\">";
     resp_str += "<h2>Configuration of Parameters</h2>";
-    resp_str += "<br/>";
+    //resp_str += "<br/>";
 
     bool allParametersConfigured = true;
 
@@ -284,8 +307,8 @@ esp_err_t HttpConfigServer::configGetHandler(httpd_req_t *req)
             allParametersConfigured = false;
         }
 
-        resp_str += "<h3> Parameter " + parameterName + "</h3>";
-        resp_str += "<input type=\"text\" name=\"" + parameterName + "\" id=\"" + parameterName + "\" size=\"100\" maxlength=\"200\" value=\"" + parameterValue + "\">";
+        resp_str += "<hr><h3>" + parameterName + ":</h3>";
+        resp_str += "<input type=\"text\" name=\"" + parameterName + "\" id=\"" + parameterName + "\" size=\"200\" maxlength=\"200\" value=\"" + parameterValue + "\">";
         resp_str += "<p>";
 
         std::string desc = description;
@@ -298,7 +321,7 @@ esp_err_t HttpConfigServer::configGetHandler(httpd_req_t *req)
 
         resp_str += desc;
         resp_str += "</p>";
-        resp_str += "<br/>";
+        //resp_str += "<br/>";
     }
     resp_str += "<button type=\"submit\">submit</button>";
     resp_str += "</form>";
